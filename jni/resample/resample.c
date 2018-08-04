@@ -58,6 +58,7 @@ static int SrcLinear(short X[], short Y[], double factor, unsigned int *Time,
 
 	Ystart = Y;
 	endTime = *Time + FP_FACTOR * (int)Nx;
+	//printf("%s(), factor:%f, Nx: %d, dt: %d, Time: %d, endTime:%u\n", __func__, factor, Nx, dt, *Time, endTime);
 	while (*Time < endTime) {
 		iconst = (*Time) & FP_MASK;	/* mask off lower 16 bits of time */
 		Xp = &X[(*Time) >> FP_DIGITS];	/* Ptr to current input sample is top 16 bits */
@@ -75,10 +76,12 @@ static int SrcLinear(short X[], short Y[], double factor, unsigned int *Time,
 int
 resample_simple(double factor, short *in_buf, short *out_buf, int buffer_size)
 {
-    int num;
+    int num = 0;
     int time;
 
     time = (10 << FP_DIGITS);
+
+   // printf("%s(), factor: %f, buffer_size: %u, time: %d\n", __func__, factor, buffer_size, time);
     num = SrcLinear(in_buf, out_buf, factor, &time, buffer_size);
 
     return num;
@@ -183,6 +186,8 @@ resample(struct rs_data *rs, short *in_buf, int in_buf_size, short *out_buf,
 		    SrcLinear(rs->in_buf, rs->out_buf, rs->factor,
 			      &rs->time, num_in);
 
+		printf("num_out is %d\n", num_out);
+
 		/* move time back num_in samples back */
 		rs->time -= (num_in << FP_DIGITS);
 		rs->in_buf_ptr += num_in;
@@ -190,17 +195,16 @@ resample(struct rs_data *rs, short *in_buf, int in_buf_size, short *out_buf,
 		/* remove time accumulation */
 		num_creep = (rs->time >> FP_DIGITS) - rs->in_buf_offset;
 		if (num_creep) {
+			printf("%s(), %d\n", __func__, __LINE__);
 			rs->time -= (num_creep << FP_DIGITS);
 			rs->in_buf_ptr += num_creep;
 		}
 
 		/* copy input signal that needs to be reused */
-		num_reuse =
-		    rs->in_buf_read - (rs->in_buf_ptr - rs->in_buf_offset);
+		num_reuse = rs->in_buf_read - (rs->in_buf_ptr - rs->in_buf_offset);
+		printf("%s(), %d, num_reuse is %d\n", __func__, __LINE__, num_reuse);
 		for (i = 0; i < num_reuse; i++) {
-			rs->in_buf[i] =
-			    rs->in_buf[(rs->in_buf_ptr - rs->in_buf_offset) +
-				       i];
+			rs->in_buf[i] = rs->in_buf[(rs->in_buf_ptr - rs->in_buf_offset) + i];
 		}
 		rs->in_buf_read = num_reuse;
 		rs->in_buf_ptr = rs->in_buf_offset;
@@ -208,9 +212,8 @@ resample(struct rs_data *rs, short *in_buf, int in_buf_size, short *out_buf,
 		/* copy samples to output buffer */
 		rs->out_buf_ptr = num_out;
 		if (rs->out_buf_ptr && (out_buf_size - out_total_samples > 0)) {
-			len =
-			    MIN(out_buf_size - out_total_samples,
-				rs->out_buf_ptr);
+			printf("%s(), %d\n", __func__, __LINE__);
+			len = MIN(out_buf_size - out_total_samples, rs->out_buf_ptr);
 			for (i = 0; i < len; i++) {
 				out_buf[out_total_samples + i] = rs->out_buf[i];
 			}
@@ -222,6 +225,7 @@ resample(struct rs_data *rs, short *in_buf, int in_buf_size, short *out_buf,
 			rs->out_buf_ptr -= len;
 		}
 		if (rs->out_buf_ptr) {
+			printf("%s(), %d\n", __func__, __LINE__);
 			break;
 		}
 	}
