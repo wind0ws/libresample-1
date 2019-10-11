@@ -3,8 +3,6 @@
 
 #include "resample.h"
 
-#define RS_UNIT	320
-
 struct rs_data *rs;
 
 /*int start_resample(src, dst, int src_rate, int dst_rate)
@@ -14,6 +12,17 @@ struct rs_data *rs;
 	resample_close(rs);
 }
 */
+
+#define RESAMPLE_METHOD_SIMPLE 0
+
+#if RESAMPLE_METHOD_SIMPLE
+#define RS_UNIT	320
+#else
+#define RS_UNIT	8192
+#endif
+
+
+
 int main(int argc, char const *argv[])
 {
 	/* code */
@@ -65,13 +74,27 @@ int main(int argc, char const *argv[])
 	int remainder = length - loop * RS_UNIT;
 
 	printf("%s(), loop: %d, remainder: %d\n", __func__, loop, remainder);
+
+	#if !RESAMPLE_METHOD_SIMPLE
+	rs = resample_init(in_rate, out_rate, length);
+	#endif
+	
 	int i = 0, num = 0, count = 0;
     for (i = 0; i < loop; i++) {
+		#if RESAMPLE_METHOD_SIMPLE
 		num = resample_simple(factor, in_buf + i * RS_UNIT, out_buf + count, RS_UNIT);
+		#else 
+		num = resample(rs, in_buf + i * RS_UNIT, RS_UNIT, out_buf + count, RS_UNIT * 2 * ((int)factor + 1), 0);
+		#endif
 		count += num;
 		printf("%s(), index: %d, num: %d, count: %d\n", __func__, i, num, count);
 	}
+	#if RESAMPLE_METHOD_SIMPLE
     num = resample_simple(factor, in_buf + i * RS_UNIT, out_buf + count, remainder);
+	#else 
+	num = resample(rs, in_buf + i * RS_UNIT, RS_UNIT, out_buf + count, RS_UNIT * 2 * ((int)factor + 1), 1);
+	resample_close(rs);
+	#endif
     count += num;
 
     printf("%s(), num: %d, total count: %d\n", __func__, num, count);
@@ -88,6 +111,8 @@ int main(int argc, char const *argv[])
 #else
 	//int num = resample_simple(factor, in_buf, out_buf, 10240);
 #endif
+
+
 	fwrite(out_buf, 1, count, fp2);
 
 	fclose(fp1);
@@ -96,5 +121,6 @@ int main(int argc, char const *argv[])
 	free(in_buf);
 	free(out_buf);
 
+	printf("Transform complete!!!  output_file=>%s\n",out_file);
 	return 0;
 }
